@@ -9,10 +9,11 @@ import { notFound } from "next/navigation";
 export default async function ServerDetail({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const metric = await prisma.metric.findUnique({
-    where: { id: params.id },
+    where: { id },
   });
 
   if (!metric) {
