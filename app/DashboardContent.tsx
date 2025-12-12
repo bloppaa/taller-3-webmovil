@@ -28,7 +28,8 @@ export function DashboardContent() {
       try {
         const res = await fetch(`/api/metrics?${params.toString()}`);
         const json = await res.json();
-        setData(json);
+        // Handle paginated response structure for dashboard (expects all data or large limit)
+        setData(json.data || json); // Fallback if API changes back or for safety
       } catch (error) {
         console.error("Failed to fetch metrics", error);
       } finally {

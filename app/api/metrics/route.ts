@@ -1,4 +1,4 @@
-import { mockMetrics } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -9,30 +9,55 @@ export async function GET(request: Request) {
   const region = searchParams.get("region");
   const search = searchParams.get("search");
 
-  let filtered = [...mockMetrics];
+  const where: any = {};
 
   if (status && status !== "All") {
-    filtered = filtered.filter((m) => m.status === status);
+    where.status = status;
   }
 
   if (type && type !== "All") {
-    filtered = filtered.filter((m) => m.type === type);
+    where.type = type;
   }
 
   if (region && region !== "All") {
-    filtered = filtered.filter((m) => m.region === region);
+    where.region = region;
   }
 
   if (search) {
-    filtered = filtered.filter(
-      (m) =>
-        m.serverName.toLowerCase().includes(search.toLowerCase()) ||
-        m.region.toLowerCase().includes(search.toLowerCase())
-    );
+    where.OR = [
+      { serverName: { contains: search, mode: "insensitive" } },
+      { region: { contains: search, mode: "insensitive" } },
+    ];
   }
 
-  // Simulate network delay for realism
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  const page = parseInt(searchParams.get("page") || "1");
+  const limit = parseInt(searchParams.get("limit") || "1000"); // Default high limit for dashboard compatibility if not provided
+  const skip = (page - 1) * limit;
 
-  return NextResponse.json(filtered);
+  try {
+    const [metrics, total] = await prisma.$transaction([
+      prisma.metric.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.metric.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      data: metrics,
+      metadata: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to fetch metrics" },
+      { status: 500 }
+    );
+  }
 }

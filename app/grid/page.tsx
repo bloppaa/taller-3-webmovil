@@ -20,6 +20,15 @@ export default function GridPage() {
   const [data, setData] = useState<Metric[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const pageSize = 10;
+
+  useEffect(() => {
+    // Reset page to 1 when filters change
+    setPage(1);
+  }, [filters]);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -28,11 +37,14 @@ export default function GridPage() {
       if (filters.type !== "All") params.append("type", filters.type);
       if (filters.region !== "All") params.append("region", filters.region);
       if (filters.search) params.append("search", filters.search);
+      params.append("page", page.toString());
+      params.append("limit", pageSize.toString());
 
       try {
         const res = await fetch(`/api/metrics?${params.toString()}`);
         const json = await res.json();
-        setData(json);
+        setData(json.data);
+        setTotalPages(json.metadata.totalPages);
       } catch (e) {
         console.error(e);
       } finally {
@@ -40,7 +52,7 @@ export default function GridPage() {
       }
     };
     fetchData();
-  }, [filters]);
+  }, [filters, page]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -147,6 +159,30 @@ export default function GridPage() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Page {page} of {totalPages}
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1 || loading}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages || loading}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );
